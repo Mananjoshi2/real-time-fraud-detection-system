@@ -1,0 +1,32 @@
+# Kafka Configuration
+kafka:
+  bootstrap_servers: 'localhost:9092'
+  topic: 'financial_transactions'
+  group_id: 'fraud_detection_group'
+
+# Model Configuration
+model:
+  model_path: 'models/fraud_detector.pkl'
+  params:
+    max_depth: 6
+    learning_rate: 0.1
+    n_estimators: 100
+    objective: 'binary:logistic'
+    eval_metric: 'auc'
+    random_state: 42
+
+# Feature Engineering
+features:
+  time_window: 24  # hours for historical features
+  location_radius: 100  # km for location-based features
+
+# Dashboard
+dashboard:
+  port: 8050
+  refresh_interval: 1  # seconds
+  max_points: 1000  # maximum points to display
+
+# Logging
+logging:
+  level: 'INFO'
+  file: 'logs/training.log'
