@@ -118,10 +118,3 @@ python demo.py
   - Render will set a `$PORT` environment variable; `dashboard.py` reads this automatically and binds the Dash app to `0.0.0.0:$PORT`.
   - No Kafka is required for the demo service.
 
-**Recommended steps**:
-
-1. Push this project to GitHub.
-2. Create a new **Web Service** in Render and point it at the repo.
-3. Set the build and start commands as shown above.
-4. Deploy; once live, open the Render URL to see the real‑time fraud detection dashboard driven by synthetic data.
-
