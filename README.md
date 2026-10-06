@@ -1,27 +1,31 @@
-## Credit Card Fraud Detection Demo
+## Real-Time Fraud Detection System
 
-An AI-powered credit card fraud detection system that started as a Kafka‑streaming project and is now equipped with a **demo mode** for easy portfolio deployment. The demo simulates a real-time fraud monitoring dashboard using synthetic transactions and a trained XGBoost model.
+**Live demo:** [real-time-fraud-detection-system.onrender.com](https://real-time-fraud-detection-system.onrender.com/) *(hosted on Render's free tier — may take a few seconds to spin up on first load)*
+
+A machine learning system for detecting fraudulent credit card transactions in real time. It combines a Kafka-based streaming pipeline, engineered transaction features, and an XGBoost classifier to score transactions as they arrive, with a live Plotly/Dash dashboard for monitoring fraud probability and transaction activity.
+
+The system is built around a production-style streaming architecture (Kafka consumer → feature engineering → model inference → dashboard) and includes a self-contained simulation mode that runs the full pipeline end-to-end without requiring a Kafka cluster — useful for local development, testing, and deployment in environments where standing up streaming infrastructure isn't practical.
 
 ### Architecture
 
-- **Data & Features**: Synthetic transactions generated into `data/training_data.csv` with engineered features such as time-of-day, weekend/night flags, spending patterns, and location‑style signals.
+- **Data & Features**: Transaction data in `data/training_data.csv` with engineered features such as time-of-day, weekend/night flags, spending patterns, and location-style signals.
 - **Model Training**: `src/train_model.py` trains an `XGBoost` classifier on these features, scales inputs with `StandardScaler`, and saves both the model (`models/fraud_detector.pkl`) and scaler (`models/scaler.pkl`).
-- **Inference & Scoring**: `src/fraud_detector.py` loads the trained model and scaler and scores each incoming transaction, returning fraud probability and a fraud flag.
-- **Dashboard**: `src/dashboard.py` exposes a Dash app that shows:
+- **Inference & Scoring**: `src/fraud_detector.py` loads the trained model and scaler and scores each incoming transaction, returning a fraud probability and a fraud flag.
+- **Streaming Pipeline (Kafka)**: `src/stream_processor.py` consumes transactions from Kafka and uses `src/feature_engineering.py` to compute real-time features (time-based, historical, and location-based), orchestrated by `src/main.py`.
+- **Dashboard**: `src/dashboard.py` runs a Dash application that visualizes:
   - Fraud probability over time
   - Transaction amount distribution
-- **Original Streaming Path (Kafka)**: `src/stream_processor.py` consumes from Kafka and uses `src/feature_engineering.py` to compute real-time features, orchestrated by `src/main.py`.
-- **Demo Mode (No Kafka)**: `demo.py` reuses the same detector and dashboard, but feeds them a loop of synthetic transactions instead of Kafka messages.
+- **Simulation Mode**: `demo.py` runs the same detector and dashboard against a continuous feed of generated transactions, so the full pipeline can be exercised without a Kafka deployment.
 
 ### Features
 
 - Supervised fraud detection with XGBoost
-- Config‑driven (`config/config.yaml`) model, dashboard, and logging settings
-- Real-time style dashboard with Plotly/Dash
-- Synthetic data generation for safe experimentation
-- Pluggable streaming backends:
-  - Kafka production path (kept intact)
-  - Demo mode using synthetic transactions (no infrastructure required)
+- Config-driven (`config/config.yaml`) model, dashboard, and logging settings
+- Real-time monitoring dashboard with Plotly/Dash
+- Synthetic transaction generator for training and testing without production data
+- Two execution modes:
+  - Kafka-backed streaming pipeline for production-style deployment
+  - Standalone simulation mode with no external infrastructure dependencies
 
 ### Local Setup
 
@@ -39,7 +43,7 @@ source venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
 ```
 
-3. **Generate synthetic training data** (if you don't already have `data/training_data.csv`):
+3. **Generate training data** (if you don't already have `data/training_data.csv`):
 
 ```bash
 python src/generate_sample_data.py
@@ -47,7 +51,7 @@ python src/generate_sample_data.py
 
 ### Training the Model
 
-1. Make sure synthetic data exists:
+1. Make sure training data exists:
 
 ```bash
 python src/generate_sample_data.py
@@ -64,15 +68,29 @@ On success you should see:
 - `models/fraud_detector.pkl` – trained XGBoost model
 - `models/scaler.pkl` – fitted `StandardScaler`
 
-### Running Demo Mode (No Kafka)
+### Kafka Streaming Mode
 
-Demo mode simulates a streaming system by feeding the model and dashboard a sequence of synthetic transactions.
+This is the primary, production-style execution path.
+
+1. Have a Kafka cluster and topic available, matching `config/config.yaml` (`bootstrap_servers`, `topic`, `group_id`).
+2. Ensure the model and scaler exist (`models/fraud_detector.pkl`, `models/scaler.pkl`).
+3. Run the pipeline:
+
+```bash
+python src/main.py
+```
+
+This wires the Kafka consumer (`src/stream_processor.py`) through real-time feature engineering (`src/feature_engineering.py`) into the fraud detector and dashboard.
+
+### Standalone Simulation Mode (No Kafka Required)
+
+For local development, testing, or environments without a Kafka deployment, `demo.py` runs the same detection and dashboard logic against a generated transaction feed.
 
 1. Ensure you have:
    - `data/training_data.csv` (from `src/generate_sample_data.py`)
    - `models/fraud_detector.pkl` and `models/scaler.pkl` (from `src/train_model.py`)
 
-2. Start demo mode from the project root:
+2. Run it from the project root:
 
 ```bash
 python demo.py
@@ -82,23 +100,9 @@ python demo.py
 
 - By default: `http://localhost:8050`
 
-The dashboard will:
+This mode continuously feeds transactions through the trained model and updates the dashboard in near real time, exercising the same scoring and visualization code paths as the Kafka pipeline.
 
-- Continuously ingest synthetic transactions from `data/training_data.csv`
-- Run fraud prediction on each one
-- Update plots in near‑real time
-
-### Original Kafka Streaming Mode (Optional)
-
-The original streaming architecture is preserved for reference:
-
-- `src/stream_processor.py`: Kafka consumer + real-time feature engineering.
-- `src/feature_engineering.py`: time, historical, and location‑based features.
-- `src/main.py`: wires Kafka stream → `FraudDetector` → `FraudDashboard`.
-
-To run this mode you would need a Kafka cluster and topic configured as in `config/config.yaml`. For portfolio/demo purposes you can stick with `demo.py`.
-
-### Deployment Notes for Render
+### Deployment Notes (Render)
 
 **Service type**: Python web service
 
@@ -115,6 +119,5 @@ python demo.py
 ```
 
 - **Environment**:
-  - Render will set a `$PORT` environment variable; `dashboard.py` reads this automatically and binds the Dash app to `0.0.0.0:$PORT`.
-  - No Kafka is required for the demo service.
-
+  - Render sets a `$PORT` environment variable; `dashboard.py` reads this automatically and binds the Dash app to `0.0.0.0:$PORT`.
+  - This start command runs the standalone simulation mode, so no Kafka cluster is required for the hosted deployment.
